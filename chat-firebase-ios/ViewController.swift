@@ -18,12 +18,43 @@ class ViewController: JSQMessagesViewController {
     var incomingAvatar: JSQMessagesAvatarImage!
     var outgoingAvatar: JSQMessagesAvatarImage!
     
+    var isStateLogin = false
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        setupFirebase()
         setupChatUi()
+        
         self.messages = []
+    }
+    
+    
+    override func viewDidAppear(animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        sendAutoMessage("こんにちは！お名前を教えてください。")
+    }
+    
+    func didInqutUserInfo(username: String) {
+        FIRAuth.auth()?.signInAnonymouslyWithCompletion() { (user, error) in
+            if error != nil {
+                self.onLoginError(username)
+                return
+            }
+            self.onLoginSuccess(user!, username: username)
+        }
+    }
+    
+    func onLoginSuccess(user: FIRUser, username: String) {
+        self.isStateLogin = true
+        self.setupFirebase()
+        self.setupUser(user.uid, name: username)
+        self.sendAutoMessage("\(username)さんのログインが完了しました！")
+    }
+    
+    func onLoginError(name: String) {
+        self.sendAutoMessage("\(name)さんのログインに失敗しました…。")
+        self.sendAutoMessage("もう一度名前を教えてください。")
     }
     
     func setupFirebase() {
@@ -39,12 +70,17 @@ class ViewController: JSQMessagesViewController {
         })
     }
     
+    func setupUser(id: String, name: String) {
+        self.senderId = id
+        self.senderDisplayName = name
+    }
+    
     func setupChatUi() {
         inputToolbar!.contentView!.leftBarButtonItem = nil
         automaticallyScrollsToMostRecentMessage = true
         
-        self.senderId = "user2"
-        self.senderDisplayName = "user1"
+        setupUser("you", name: "あなた")
+        
         self.incomingAvatar = JSQMessagesAvatarImageFactory.avatarImageWithImage(UIImage(named: "icon_default")!, diameter: 64)
         
         self.outgoingAvatar = JSQMessagesAvatarImageFactory.avatarImageWithImage(UIImage(named: "icon_default")!, diameter: 64)
@@ -57,9 +93,23 @@ class ViewController: JSQMessagesViewController {
 
     //メッセージの送信
     override func didPressSendButton(button: UIButton!, withMessageText text: String!, senderId: String!, senderDisplayName: String!, date: NSDate!) {
-        self.finishSendingMessageAnimated(true)
+    
+        if !isStateLogin {
+            if !isVariableUsername(text) {
+                sendAutoMessage("\(text)は名前として利用できません…。")
+                sendAutoMessage("他の名前でもう一度お願いします。")
+                return
+            }
+            didInqutUserInfo(text)
+            return
+        }
         
-        sendMessageToDatabase(text)
+        self.finishSendingMessageAnimated(true)
+        sendTextToDb(text)
+    }
+    
+    func isVariableUsername(name: String) -> Bool {
+        return name.characters.count < 16
     }
     
     func sendTextToDb(text: String) {
@@ -97,13 +147,16 @@ class ViewController: JSQMessagesViewController {
     
     //アイテムの総数を返す
     override func collectionView(collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return (self.messages?.count)!
+        if let posts = self.messages {
+            return posts.count
+        }
+        return 0
     }
     
-    //返信メッセージを受信する
-//    func receiveAutoMessage(messageStr: String) {
-//        let message = JSQMessage(senderId: "user2", displayName: "underscore", text: messageStr)
-//        self.messages?.append(message)
-//        self.finishReceivingMessageAnimated(true)
-//    }
+    //自動返信
+    func sendAutoMessage(messageStr: String) {
+        let message = JSQMessage(senderId: "qpid", displayName: "キューピッド", text: messageStr)
+        self.messages?.append(message)
+        self.finishReceivingMessageAnimated(true)
+    }
 }
