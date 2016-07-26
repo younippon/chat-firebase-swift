@@ -18,58 +18,62 @@ class ViewController: JSQMessagesViewController {
     var incomingAvatar: JSQMessagesAvatarImage!
     var outgoingAvatar: JSQMessagesAvatarImage!
     
-    var isStateLogin = false
+    var manager = AuthManager.sharedManager
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
         setupChatUi()
-        
         self.messages = []
     }
     
-    
     override func viewDidAppear(animated: Bool) {
         super.viewDidAppear(animated)
-        
-        sendAutoMessage("こんにちは！お名前を教えてください。")
+        sendAutoMessage("こんにちは！お名前を教えてください。", senderId: "", displayName: "")
     }
     
     func didInqutUserInfo(username: String) {
-        FIRAuth.auth()?.signInAnonymouslyWithCompletion() { (user, error) in
-            if error != nil {
+        manager.login(username, withBlock: { (user) in
+            if user == nil {
                 self.onLoginError(username)
                 return
             }
             self.onLoginSuccess(user!, username: username)
-        }
+        })
     }
     
     func onLoginSuccess(user: FIRUser, username: String) {
-        self.isStateLogin = true
-        self.setupFirebase()
         self.setupUser(user.uid, name: username)
-        self.sendAutoMessage("\(username)さんのログインが完了しました！")
+        self.sendAutoMessage("\(username)さんのログインが完了しました！", senderId: "", displayName: "")
+        
+        manager.registUser(user.uid)
+        
+        sendAutoMessage("お声がかかったら、話してみたい人をタップしましょう！", senderId: "", displayName: "")
+        manager.findRoom(withBlock: { (outgoingId, name) in
+            self.didFindOutgoing(outgoingId, name: "相手")
+        })
+        manager.findUser(withBlock: { (userId, name) in
+            
+            self.sendAutoMessage("\(name)", senderId: userId, displayName: "")
+        })
     }
     
     func onLoginError(name: String) {
-        self.sendAutoMessage("\(name)さんのログインに失敗しました…。")
-        self.sendAutoMessage("もう一度名前を教えてください。")
+        self.sendAutoMessage("\(name)さんのログインに失敗しました…。", senderId: "", displayName: "")
+        self.sendAutoMessage("もう一度名前を教えてください。", senderId: "", displayName: "")
     }
     
-    func setupFirebase() {
-        let rootRef = FIRDatabase.database().reference()
-        rootRef.queryLimitedToLast(100).observeEventType(FIRDataEventType.ChildAdded, withBlock: { (snapshot) in
-            let text = snapshot.value!["text"] as! String
-            let sender = snapshot.value!["from"] as! String
-            let name = snapshot.value!["name"] as! String
-            print(snapshot.value!)
+    func didFindOutgoing(outgoingId: String, name: String) {
+        sendAutoMessage("\(name)さんが入室しました！", senderId: "", displayName: "")
+        sendAutoMessage("それでは楽しい時間をお過ごしください♩", senderId: "", displayName: "")
+        
+        manager.setupFirebase(withBlock: { (sender, name, text) in
             let message = JSQMessage(senderId: sender, displayName: name, text: text)
             self.messages?.append(message)
             self.finishReceivingMessage()
         })
     }
-    
+        
     func setupUser(id: String, name: String) {
         self.senderId = id
         self.senderDisplayName = name
@@ -82,7 +86,6 @@ class ViewController: JSQMessagesViewController {
         setupUser("you", name: "あなた")
         
         self.incomingAvatar = JSQMessagesAvatarImageFactory.avatarImageWithImage(UIImage(named: "icon_default")!, diameter: 64)
-        
         self.outgoingAvatar = JSQMessagesAvatarImageFactory.avatarImageWithImage(UIImage(named: "icon_default")!, diameter: 64)
         
         let bubbleFactory = JSQMessagesBubbleImageFactory()
@@ -94,10 +97,10 @@ class ViewController: JSQMessagesViewController {
     //メッセージの送信
     override func didPressSendButton(button: UIButton!, withMessageText text: String!, senderId: String!, senderDisplayName: String!, date: NSDate!) {
     
-        if !isStateLogin {
+        if manager.auth == nil {
             if !isVariableUsername(text) {
-                sendAutoMessage("\(text)は名前として利用できません…。")
-                sendAutoMessage("他の名前でもう一度お願いします。")
+                sendAutoMessage("\(text)は名前として利用できません…。", senderId: "", displayName: "")
+                sendAutoMessage("他の名前でもう一度お願いします。", senderId: "", displayName: "")
                 return
             }
             didInqutUserInfo(text)
@@ -105,21 +108,11 @@ class ViewController: JSQMessagesViewController {
         }
         
         self.finishSendingMessageAnimated(true)
-        sendTextToDb(text)
+        manager.postMessage(senderId, senderDisplayName: senderDisplayName, text: text)
     }
     
     func isVariableUsername(name: String) -> Bool {
         return name.characters.count < 16
-    }
-    
-    func sendTextToDb(text: String) {
-        //firebaseにデータを送信、保存する
-        let rootRef = FIRDatabase.database().reference()
-        let post = ["from": senderId,
-                    "name": senderDisplayName,
-                    "text": text]
-        let postRef = rootRef.childByAutoId()
-        postRef.setValue(post)
     }
     
     //アイテムごとに参照するメッセージデータを返す
@@ -153,9 +146,19 @@ class ViewController: JSQMessagesViewController {
         return 0
     }
     
+    //アバターをタップした時
+    override func collectionView(collectionView: JSQMessagesCollectionView!, didTapAvatarImageView avatarImageView: UIImageView, atIndexPath indexPath: NSIndexPath) {
+        
+        let message = self.messages?[indexPath.item]
+        if message?.senderId == self.senderId || message?.senderId == "" {
+            return
+        }
+        manager.addRoomWithUserId((message?.senderId)!)
+    }
+    
     //自動返信
-    func sendAutoMessage(messageStr: String) {
-        let message = JSQMessage(senderId: "qpid", displayName: "キューピッド", text: messageStr)
+    func sendAutoMessage(messageStr: String, senderId: String, displayName: String) {
+        let message = JSQMessage(senderId: senderId, displayName: displayName, text: messageStr)
         self.messages?.append(message)
         self.finishReceivingMessageAnimated(true)
     }
