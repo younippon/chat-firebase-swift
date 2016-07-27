@@ -12,19 +12,19 @@ import JSQMessagesViewController
 
 class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     
-    var imageProfile: UIImageView!
+    private var imageProfile: UIImageView!
     
-    var messages: [JSQMessage]?
-    var incomingBubble: JSQMessagesBubbleImage!
-    var outgoingBubble: JSQMessagesBubbleImage!
-    var incomingAvatar: JSQMessagesAvatarImage!
-    var outgoingAvatar: JSQMessagesAvatarImage!
+    private var messages: [JSQMessage]?
+    private var incomingBubble: JSQMessagesBubbleImage!
+    private var outgoingBubble: JSQMessagesBubbleImage!
+    private var incomingAvatar: JSQMessagesAvatarImage!
+    private var outgoingAvatar: JSQMessagesAvatarImage!
     
-    var authManager: AuthManager!
-    var storageManager: StorageManager!
+    private var authManager: AuthManager!
+    private var storageManager: StorageManager!
     
     
-    var profileButton: Button?
+    private var profileButton: Button?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -32,7 +32,7 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         initialize()
     }
     
-    func initialize() {
+    private func initialize() {
         authManager = AuthManager.sharedManager
         authManager.delegate = self
         
@@ -53,11 +53,11 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         }
     }
     
-    func didInqutUserInfo(username: String) {
+    private func didInqutUserInfo(username: String) {
         authManager.login(username)
     }
     
-    func onLoginSuccess(user: FIRUser, username: String) {
+    private func onLoginSuccess(user: FIRUser, username: String) {
         
         setupUser(user.uid, name: username)
         sendAutoMessage("\(username)さんのログインが完了しました！")
@@ -68,7 +68,7 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         searchUser()
     }
     
-    func searchUser() {
+    private func searchUser() {
         sendAutoMessage("お声がかかったら、話してみたい人をタップしましょう！")
         
         self.navigationItem.leftBarButtonItem?.enabled = false
@@ -77,7 +77,7 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         authManager.addMonitoringUsers()
     }
     
-    func didFindOutgoing(outgoingId: String, name: String) {
+    private func didFindOutgoing(outgoingId: String, name: String) {
         storageManager.download(outgoingId, isPartner: true)
         
         sendAutoMessage("\(name)さんが入室しました！")
@@ -91,14 +91,14 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         authManager.addMonitoringPartner(outgoingId)
     }
         
-    func setupUser(id: String, name: String) {
+    private func setupUser(id: String, name: String) {
         storageManager.setupRef(id)
         
         self.senderId = id
         self.senderDisplayName = name
     }
     
-    func setupChatUi() {
+    private func setupChatUi() {
         inputToolbar!.contentView!.leftBarButtonItem = nil
         automaticallyScrollsToMostRecentMessage = true
         
@@ -112,11 +112,11 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         self.outgoingBubble = bubbleFactory.outgoingMessagesBubbleImageWithColor(UIColor.jsq_messageBubbleGreenColor())
     }
     
-    func updateAvaterImageDefault(isPartner: Bool) {
+    private func updateAvaterImageDefault(isPartner: Bool) {
         updateAvaterImage(UIImage(named: "icon_default")!, isPartner: isPartner)
     }
     
-    func updateAvaterImage(image: UIImage, isPartner: Bool) {
+    private func updateAvaterImage(image: UIImage, isPartner: Bool) {
         if isPartner {
             updatePartnerImage(image)
         } else {
@@ -124,7 +124,7 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         }
     }
     
-    func setupButtons() {
+    private func setupButtons() {
         profileButton = Button(frame: CGRectMake(UIScreen.mainScreen().bounds.size.width - (Button.sizeS + Button.marginH), Button.marginV, Button.sizeS, Button.sizeS))
         profileButton!.addTarget(self, action: #selector(ViewController.didTapProfile), forControlEvents:.TouchUpInside)
         profileButton!.setImage(UIImage(named: "icon_default"), forState: .Normal)
@@ -143,7 +143,7 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
     }
     
     @objc
-    func didTapProfile() {
+    private func didTapProfile() {
         if UIImagePickerController.isSourceTypeAvailable(UIImagePickerControllerSourceType.PhotoLibrary) {
             let controller = UIImagePickerController()
             controller.delegate = self
@@ -164,23 +164,23 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         picker.dismissViewControllerAnimated(true, completion: nil)
     }
     
-    func updateMyImage(image: UIImage)  {
+    private func updateMyImage(image: UIImage)  {
         profileButton!.setImage(image, forState: .Normal)
         profileButton!.imageView!.layer.cornerRadius = profileButton!.frame.size.width / 2.0
         incomingAvatar.avatarImage = image
     }
     
-    func updatePartnerImage(image: UIImage) {
+    private func updatePartnerImage(image: UIImage) {
         outgoingAvatar.avatarImage = image
     }
     
     @objc
-    func didTapExit() {
+    private func didTapExit() {
         let alert = createAlertLeaving()
         presentViewController(alert, animated: true, completion: nil)
     }
     
-    func createAlertLeaving() -> UIAlertController {
+    private func createAlertLeaving() -> UIAlertController {
         let alert = UIAlertController(
             title:"チャットの終了",
             message: "本当にチャットを終了してもよろしいですか？",
@@ -214,7 +214,7 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         authManager.postMessage(senderId, name: senderDisplayName, text: text)
     }
     
-    func checkUserNameIfValiable(name: String) {
+    private func checkUserNameIfValiable(name: String) {
         if name.characters.count > 16 {
             sendAutoMessage("\(name)は名前として利用できません…。")
             sendAutoMessage("他の名前でもう一度お願いします。")
@@ -269,13 +269,13 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         authManager.createRoom((message?.senderId)!)
     }
     
-    func sendAutoMessage(messageStr: String, senderId: String, displayName: String) {
+    private func sendAutoMessage(messageStr: String, senderId: String, displayName: String) {
         let message = JSQMessage(senderId: senderId, displayName: displayName, text: messageStr)
         self.messages?.append(message)
         self.finishReceivingMessageAnimated(true)
     }
     
-    func sendAutoMessage(messageStr: String) {
+    private func sendAutoMessage(messageStr: String) {
         sendAutoMessage(messageStr, senderId: "", displayName: "")
     }
 }
@@ -316,7 +316,6 @@ extension ViewController : AuthDelegate {
     func didPartnerLeave(name: String) {
         self.sendAutoMessage("\(name)さんが退室しました。")
         leaving()
-    
     }
     
     func leaving() {
@@ -337,19 +336,11 @@ extension ViewController : StorageDelegate {
     }
     
     func didDownloadSuccsess(image: UIImage, isPartner: Bool) {
-        if isPartner {
-            self.outgoingAvatar = JSQMessagesAvatarImageFactory.avatarImageWithImage(image, diameter: 64)
-        } else {
-            self.incomingAvatar = JSQMessagesAvatarImageFactory.avatarImageWithImage(image, diameter: 64)
-        }
+        updateAvaterImage(image, isPartner: isPartner)
     }
     
     func didDownloadFailure(error: NSError, isPartner: Bool) {
-        if isPartner {
-            self.outgoingAvatar = JSQMessagesAvatarImageFactory.avatarImageWithImage(UIImage(named: "icon_default")!, diameter: 64)
-        } else {
-            self.incomingAvatar = JSQMessagesAvatarImageFactory.avatarImageWithImage(UIImage(named: "icon_default")!, diameter: 64)
-        }
+        updateAvaterImageDefault(isPartner)
     }
     
     func didChangeImage(image: UIImage) {
