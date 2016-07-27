@@ -34,6 +34,7 @@ class AuthManager {
     
     private var roomHandle: FIRDatabaseHandle?
     private var userHandle: FIRDatabaseHandle?
+    private var partnerHandle: FIRDatabaseHandle?
     private var messageHandle: FIRDatabaseHandle?
     
     private let userPath = "users"
@@ -81,9 +82,12 @@ class AuthManager {
         userRef.child(uid).setValue(user)
     }
     
-    private func updateUserParamBool(flag: Bool, param: String) {
+    private func updateUserParam(inRoom: Bool, isActive: Bool) {
         let userRef = rootRef.child(userPath)
-        userRef.child((self.auth?.uid)!).updateChildValues([param: flag])
+        let user = ["name": name!,
+                    "inRoom": inRoom,
+                    "isActive": isActive]
+        userRef.child((self.auth?.uid)!).setValue(user)
     }
     
     func addMonitoringUsers() {
@@ -127,7 +131,7 @@ class AuthManager {
         if let index = users.indexOf((self.auth?.uid)!) {
             self.roomId = snapshot.key
             users.removeAtIndex(index)
-            self.updateUserParamBool(true, param: "inRoom")
+            self.updateUserParam(true, isActive: true)
             delegate?.didFindRoomEntering(users[0], name: self.name!)
         }
     }
@@ -151,20 +155,20 @@ class AuthManager {
     
     func addMonitoringPartner(uid: String) {
         let ref = rootRef.child(userPath)
-        userHandle = ref.observeEventType(FIRDataEventType.ChildAdded, withBlock: { (snapshot) in
+        partnerHandle = ref.observeEventType(FIRDataEventType.ChildChanged, withBlock: { (snapshot) in
             
             let checkId = snapshot.key
             if checkId == uid {
-                
-                let isActive = snapshot.value!["isActive"] as? Bool
-                self.checkPartnerIfLeaving(isActive!)
+                let isInRoom = snapshot.value!["inRoom"] as? Bool
+                let name = snapshot.value!["name"] as! String
+                self.checkPartnerIfLeaving(!isInRoom!, name: name)
             }
         })
     }
     
-    private func checkPartnerIfLeaving(isActive: Bool) {
-        if !isActive {
-            self.delegate?.didPartnerLeave("相手")
+    private func checkPartnerIfLeaving(isPertnerLeaving: Bool, name: String) {
+        if isPertnerLeaving {
+            self.delegate?.didPartnerLeave(name)
         }
     }
     
@@ -180,9 +184,13 @@ class AuthManager {
         if let handle = messageHandle {
             removeMonitoring(getMessagePath(), handle: handle)
         }
+        
+        if let handle = partnerHandle {
+            removeMonitoring(userPath, handle: handle)
+        }
     }
     
-    func removeMonitoring(path: String, handle: FIRDatabaseHandle) {
+    private func removeMonitoring(path: String, handle: FIRDatabaseHandle) {
         let ref = rootRef.child(path)
         ref.removeObserverWithHandle(handle)
     }
@@ -197,14 +205,15 @@ class AuthManager {
     
     @objc
     func willFinishApp() {
+        exitRoom(false)
         NSNotificationCenter.defaultCenter().removeObserver(self)
-        print("終了します。")
-        exitRoom()
     }
     
-    func exitRoom() {
-        updateUserParamBool(false, param: "inRoom")
-        updateUserParamBool(false, param: "isActive")
+    func exitRoom(isActiveUser: Bool) {
+        updateUserParam(false, isActive: isActiveUser)
+        updateRoomIsActive(false)
+        roomId = nil
+        
     }
 
 }

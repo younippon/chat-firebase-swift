@@ -20,7 +20,7 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
     var incomingAvatar: JSQMessagesAvatarImage!
     var outgoingAvatar: JSQMessagesAvatarImage!
     
-    var manager = AuthManager.sharedManager
+    var manager:AuthManager!
     
     var profileButton: Button?
     
@@ -31,6 +31,7 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
     }
     
     func initialize() {
+        manager = AuthManager.sharedManager
         manager.delegate = self
         
         setupChatUi()
@@ -42,7 +43,9 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
     override func viewDidAppear(animated: Bool) {
         super.viewDidAppear(animated)
         
-        sendAutoMessage("こんにちは！お名前を教えてください。")
+        if !manager.isLogin() {
+            sendAutoMessage("こんにちは！お名前を教えてください。")
+        }
     }
     
     func didInqutUserInfo(username: String) {
@@ -153,9 +156,7 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         
         let actionOk = UIAlertAction(title: "はい", style: .Default,
                                      handler:{ (action:UIAlertAction!) -> Void in
-                                        self.manager.exitRoom()
-                                        self.manager.removeMonitoringAll()
-                                        self.searchUser()
+                                        self.leaving()
         })
         
         let actionCancel = UIAlertAction (title: "いいえ", style: .Cancel, handler:nil)
@@ -268,7 +269,7 @@ extension ViewController : AuthDelegate {
     }
     
     func didFindRoomEntering(uid: String, name: String) {
-        didFindOutgoing(uid, name: "相手")
+        didFindOutgoing(uid, name: name)
     }
     
     func didFindNewMessage(fromId: String, name: String, text: String) {
@@ -279,5 +280,13 @@ extension ViewController : AuthDelegate {
     
     func didPartnerLeave(name: String) {
         self.sendAutoMessage("\(name)さんが退室しました。")
+        leaving()
+    
+    }
+    
+    func leaving() {
+        self.manager.removeMonitoringAll()
+        self.manager.exitRoom(true)
+        self.searchUser()
     }
 }
