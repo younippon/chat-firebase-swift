@@ -11,6 +11,7 @@
 		6ABE93C6057BBB154D33E029 /* Pods_chat_firebase_iosUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC898285643FDB72DA655C54 /* Pods_chat_firebase_iosUITests.framework */; };
 		ACBB0911C8EBC0F221039D64 /* Pods_chat_firebase_iosTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6F82C2FEFD6EB5B197241168 /* Pods_chat_firebase_iosTests.framework */; };
 		D95ABA121D443DA0006ECE82 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95ABA111D443DA0006ECE82 /* AuthManager.swift */; };
+		D95BB23C1D48500000BE22A7 /* Button.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95BB23B1D48500000BE22A7 /* Button.swift */; };
 		D9B760491D4103CE003B0A6E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B760481D4103CE003B0A6E /* AppDelegate.swift */; };
 		D9B7604B1D4103CE003B0A6E /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B7604A1D4103CE003B0A6E /* ViewController.swift */; };
 		D9B7604E1D4103CE003B0A6E /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = D9B7604C1D4103CE003B0A6E /* Main.storyboard */; };
@@ -48,6 +49,7 @@
 		93A210829537268BC15CC37B /* Pods-chat-firebase-ios.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-chat-firebase-ios.debug.xcconfig"; path = "Pods/Target Support Files/Pods-chat-firebase-ios/Pods-chat-firebase-ios.debug.xcconfig"; sourceTree = "<group>"; };
 		BEF4766C48D0262F4F30CEDF /* Pods-chat-firebase-iosTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-chat-firebase-iosTests.debug.xcconfig"; path = "Pods/Target Support Files/Pods-chat-firebase-iosTests/Pods-chat-firebase-iosTests.debug.xcconfig"; sourceTree = "<group>"; };
 		D95ABA111D443DA0006ECE82 /* AuthManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		D95BB23B1D48500000BE22A7 /* Button.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Button.swift; sourceTree = "<group>"; };
 		D9B760451D4103CE003B0A6E /* chat-firebase-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "chat-firebase-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D9B760481D4103CE003B0A6E /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		D9B7604A1D4103CE003B0A6E /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -118,6 +120,14 @@
 			name = Pods;
 			sourceTree = "<group>";
 		};
+		D95BB23A1D484FF500BE22A7 /* view */ = {
+			isa = PBXGroup;
+			children = (
+				D95BB23B1D48500000BE22A7 /* Button.swift */,
+			);
+			name = view;
+			sourceTree = "<group>";
+		};
 		D9B7603C1D4103CE003B0A6E = {
 			isa = PBXGroup;
 			children = (
@@ -144,6 +154,7 @@
 			isa = PBXGroup;
 			children = (
 				D9B760481D4103CE003B0A6E /* AppDelegate.swift */,
+				D95BB23A1D484FF500BE22A7 /* view */,
 				D9B7607A1D419F5E003B0A6E /* helper */,
 				D9B7604A1D4103CE003B0A6E /* ViewController.swift */,
 				D95ABA111D443DA0006ECE82 /* AuthManager.swift */,
@@ -447,6 +458,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D9B7604B1D4103CE003B0A6E /* ViewController.swift in Sources */,
+				D95BB23C1D48500000BE22A7 /* Button.swift in Sources */,
 				D95ABA121D443DA0006ECE82 /* AuthManager.swift in Sources */,
 				D9B7607C1D419F92003B0A6E /* ColorHelper.swift in Sources */,
 				D9B760491D4103CE003B0A6E /* AppDelegate.swift in Sources */,

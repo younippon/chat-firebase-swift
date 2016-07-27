@@ -9,123 +9,202 @@
 import Foundation
 import Firebase
 
+protocol AuthDelegate {
+    func onLoginSuccess(user: FIRUser?, name: String)
+    func onLoginError(error: NSError, name: String)
+    
+    func didFindUserWaiting(uid: String, name: String)
+    func didFindRoomEntering(uid: String, name: String)
+    
+    func didFindNewMessage(fromId: String, name: String, text: String)
+    
+    func didPartnerLeave(name: String)
+}
+
 class AuthManager {
     
     static let sharedManager = AuthManager()
     private init() {
     }
     
-    var rootRef: FIRDatabaseReference!
-    var roomId: String?
-    var auth: FIRUser?
-    var name: String?
+    private var rootRef: FIRDatabaseReference!
+    private var roomId: String?
+    private var auth: FIRUser?
+    private var name: String?
     
-    var findRoomHandle: FIRDatabaseHandle?
-    var findUserHandle: FIRDatabaseHandle?
+    private var roomHandle: FIRDatabaseHandle?
+    private var userHandle: FIRDatabaseHandle?
+    private var messageHandle: FIRDatabaseHandle?
     
+    private let userPath = "users"
+    private let roomPath = "rooms"
     
-    let userPath = "users"
-    let roomPath = "rooms"
+    var delegate: AuthDelegate?
     
-    func getMessagePath() -> String {
+    private func getMessagePath() -> String {
         return "rooms/\(roomId!)/messages"
     }
     
-    //ログイン処理
-    func login(username: String, withBlock block: (FIRUser?) -> Void) {
+    func isLogin() -> Bool {
+        return auth != nil
+    }
+    
+    func isInRoom() -> Bool {
+        return roomId != nil
+    }
+    
+    func login(username: String) {
         rootRef = FIRDatabase.database().reference()
+        
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(AuthManager.willFinishApp), name: UIApplicationWillTerminateNotification, object: nil)
         
         FIRAuth.auth()?.signInAnonymouslyWithCompletion() { (user, error) in
             if error != nil {
-                block(nil)
+                self.delegate?.onLoginError(error!, name: username)
                 return
             }
             self.auth = user
             self.name = username
-            block(user)
+            self.delegate?.onLoginSuccess(user, name: username)
         }
     }
     
-    //ログインユーザの作成
+    private func setupUserInfo(user: String, username: String) {
+        
+    }
+    
     func registUser(uid: String) {
         let userRef = rootRef.child(userPath)
         let user = ["name": name!,
-                    "inRoom": false]
+                    "inRoom": false,
+                    "isActive": true]
         userRef.child(uid).setValue(user)
     }
     
-    func updateUser(isInRoom: Bool) {
+    private func updateUserParamBool(flag: Bool, param: String) {
         let userRef = rootRef.child(userPath)
-        userRef.child((self.auth?.uid)!).updateChildValues(["inRoom": isInRoom])
+        userRef.child((self.auth?.uid)!).updateChildValues([param: flag])
     }
     
-    //非チャットユーザを監視
-    func findUser(withBlock block: (String, String) -> Void) {
+    func addMonitoringUsers() {
         let ref = rootRef.child(userPath)
-        findUserHandle = ref.observeEventType(FIRDataEventType.ChildAdded, withBlock: { (snapshot) in
-            
-            let uid = snapshot.key
-            let name = snapshot.value!["name"] as! String
-            let isInRoom = snapshot.value!["inRoom"] as? Bool
-            
-            if !isInRoom! && uid != self.auth?.uid {
-                block(uid, name)
-            }
+        userHandle = ref.observeEventType(FIRDataEventType.ChildAdded, withBlock: { (snapshot) in
+            self.checkUserIfWaiting(snapshot)
         })
     }
     
-    //ルームの作成
-    func addRoomWithUserId(outcomingUid: String) {
+    private func checkUserIfWaiting(snapshot: FIRDataSnapshot) {
+        let uid = snapshot.key
+        let name = snapshot.value!["name"] as! String
+        let isInRoom = snapshot.value!["inRoom"] as? Bool
+        
+        if !isInRoom! && uid != self.auth?.uid {
+            self.delegate?.didFindUserWaiting(uid, name: name)
+        }
+    }
+    
+    func createRoom(outgoingUid: String) {
         let roomRef = self.rootRef.child(roomPath).childByAutoId()
-        let room = ["user": [(self.auth?.uid)! as String, outcomingUid]]
+        let room = ["user": [(self.auth?.uid)! as String, outgoingUid],
+                    "isActive": true]
         roomRef.setValue(room)
     }
     
-    //ルームの監視
-    func findRoom(withBlock block: (String, String) -> Void) {
+    func addMonitoringRooms() {
         let ref = FIRDatabase.database().reference().child(roomPath)
-        findRoomHandle = ref.observeEventType(FIRDataEventType.ChildAdded, withBlock: { (snapshot) in
-            var users = snapshot.value!["user"] as! Array<String>
+        roomHandle = ref.observeEventType(FIRDataEventType.ChildAdded, withBlock: { (snapshot) in
+            self.checkRoomIfEntering(snapshot)
+        })
+    }
+    
+    private func checkRoomIfEntering(snapshot: FIRDataSnapshot) {
+        let isActive = snapshot.value!["isActive"] as! Bool
+        if !isActive {
+            return
+        }
+        
+        var users = snapshot.value!["user"] as! Array<String>
+        if let index = users.indexOf((self.auth?.uid)!) {
+            self.roomId = snapshot.key
+            users.removeAtIndex(index)
+            self.updateUserParamBool(true, param: "inRoom")
+            delegate?.didFindRoomEntering(users[0], name: self.name!)
+        }
+    }
+    
+    private func updateRoomIsActive(isActive: Bool) {
+        let roomRef = rootRef.child(roomPath)
+        roomRef.child(roomId!).updateChildValues(["isActive": isActive])
+    }
+    
+    func addMonitorignMessages() {
+        let roomRef = rootRef.child(getMessagePath())
+        messageHandle = roomRef.queryLimitedToLast(100).observeEventType(FIRDataEventType.ChildAdded, withBlock: { (snapshot) in
             
-            //自分を含むルームが存在する時
-            if let index = users.indexOf((self.auth?.uid)!) {
-                self.roomId = snapshot.key
-                users.removeAtIndex(index)
-                self.updateUser(true)
-                block(users[0], self.name!)
-                return
+            let fromId = snapshot.value!["from"] as! String
+            let name = snapshot.value!["name"] as! String
+            let text = snapshot.value!["text"] as! String
+            
+            self.delegate?.didFindNewMessage(fromId, name: name, text: text)
+        })
+    }
+    
+    func addMonitoringPartner(uid: String) {
+        let ref = rootRef.child(userPath)
+        userHandle = ref.observeEventType(FIRDataEventType.ChildAdded, withBlock: { (snapshot) in
+            
+            let checkId = snapshot.key
+            if checkId == uid {
+                
+                let isActive = snapshot.value!["isActive"] as? Bool
+                self.checkPartnerIfLeaving(isActive!)
             }
         })
     }
     
-    //チャットの開始
-    func setupFirebase(withBlock block: (String, String, String) -> Void) {
-        let roomRef = rootRef.child(getMessagePath())
-        removeObserveEvents()
-        
-        roomRef.queryLimitedToLast(100).observeEventType(FIRDataEventType.ChildAdded, withBlock: { (snapshot) in
-            let text = snapshot.value!["text"] as! String
-            let sender = snapshot.value!["from"] as! String
-            let name = snapshot.value!["name"] as! String
-            block(sender, name, text)
-        })
+    private func checkPartnerIfLeaving(isActive: Bool) {
+        if !isActive {
+            self.delegate?.didPartnerLeave("相手")
+        }
     }
     
-    //監視の削除
-    func removeObserveEvents() {
-        let roomRef = rootRef.child(roomPath)
-        roomRef.removeObserverWithHandle(findRoomHandle!)
+    func removeMonitoringAll() {
+        if let handle = roomHandle {
+            removeMonitoring(roomPath, handle: handle)
+        }
         
-        let userRef = roomRef.child(userPath)
-        userRef.removeObserverWithHandle(findUserHandle!)
+        if let handle = userHandle {
+            removeMonitoring(userPath, handle: handle)
+        }
+        
+        if let handle = messageHandle {
+            removeMonitoring(getMessagePath(), handle: handle)
+        }
     }
     
-    //メッセージの送信
-    func postMessage(senderId: String, senderDisplayName: String, text: String) {
+    func removeMonitoring(path: String, handle: FIRDatabaseHandle) {
+        let ref = rootRef.child(path)
+        ref.removeObserverWithHandle(handle)
+    }
+    
+    func postMessage(fromId: String, name: String, text: String) {
         let postRef = rootRef.child(getMessagePath())
-        let post = ["from": senderId,
-                    "name": senderDisplayName,
+        let post = ["from": fromId,
+                    "name": name,
                     "text": text]
         postRef.childByAutoId().setValue(post)
     }
+    
+    @objc
+    func willFinishApp() {
+        NSNotificationCenter.defaultCenter().removeObserver(self)
+        print("終了します。")
+        exitRoom()
+    }
+    
+    func exitRoom() {
+        updateUserParamBool(false, param: "inRoom")
+        updateUserParamBool(false, param: "isActive")
+    }
+
 }
