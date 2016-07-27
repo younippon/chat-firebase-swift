@@ -20,7 +20,9 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
     var incomingAvatar: JSQMessagesAvatarImage!
     var outgoingAvatar: JSQMessagesAvatarImage!
     
-    var manager:AuthManager!
+    var authManager: AuthManager!
+    var storageManager: StorageManager!
+    
     
     var profileButton: Button?
     
@@ -31,8 +33,11 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
     }
     
     func initialize() {
-        manager = AuthManager.sharedManager
-        manager.delegate = self
+        authManager = AuthManager.sharedManager
+        authManager.delegate = self
+        
+        storageManager = StorageManager.sharedManager
+        storageManager.delegate = self
         
         setupChatUi()
         setupButtons()
@@ -43,22 +48,23 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
     override func viewDidAppear(animated: Bool) {
         super.viewDidAppear(animated)
         
-        if !manager.isLogin() {
+        if !authManager.isLogin() {
             sendAutoMessage("こんにちは！お名前を教えてください。")
         }
     }
     
     func didInqutUserInfo(username: String) {
-        manager.login(username)
+        authManager.login(username)
     }
     
     func onLoginSuccess(user: FIRUser, username: String) {
+        
         setupUser(user.uid, name: username)
         sendAutoMessage("\(username)さんのログインが完了しました！")
         
         navigationItem.rightBarButtonItem?.enabled = true
         
-        manager.registUser(user.uid)
+        authManager.registUser(user.uid)
         searchUser()
     }
     
@@ -67,23 +73,27 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         
         self.navigationItem.leftBarButtonItem?.enabled = false
         
-        manager.addMonitoringRooms()
-        manager.addMonitoringUsers()
+        authManager.addMonitoringRooms()
+        authManager.addMonitoringUsers()
     }
     
     func didFindOutgoing(outgoingId: String, name: String) {
+        storageManager.download(outgoingId, isPartner: true)
+        
         sendAutoMessage("\(name)さんが入室しました！")
         sendAutoMessage("それでは楽しい時間をお過ごしください♩")
         
         self.navigationItem.leftBarButtonItem?.enabled = true
         
-        manager.removeMonitoringAll()
+        authManager.removeMonitoringAll()
         
-        manager.addMonitorignMessages()
-        manager.addMonitoringPartner(outgoingId)
+        authManager.addMonitorignMessages()
+        authManager.addMonitoringPartner(outgoingId)
     }
         
     func setupUser(id: String, name: String) {
+        storageManager.setupRef(id)
+        
         self.senderId = id
         self.senderDisplayName = name
     }
@@ -100,6 +110,18 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         let bubbleFactory = JSQMessagesBubbleImageFactory()
         self.incomingBubble = bubbleFactory.incomingMessagesBubbleImageWithColor(UIColor.jsq_messageBubbleLightGrayColor())
         self.outgoingBubble = bubbleFactory.outgoingMessagesBubbleImageWithColor(UIColor.jsq_messageBubbleGreenColor())
+    }
+    
+    func updateAvaterImageDefault(isPartner: Bool) {
+        updateAvaterImage(UIImage(named: "icon_default")!, isPartner: isPartner)
+    }
+    
+    func updateAvaterImage(image: UIImage, isPartner: Bool) {
+        if isPartner {
+            updatePartnerImage(image)
+        } else {
+            updateMyImage(image)
+        }
     }
     
     func setupButtons() {
@@ -133,12 +155,23 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
     func imagePickerController(picker: UIImagePickerController, didFinishPickingMediaWithInfo: [String: AnyObject]) {
         if didFinishPickingMediaWithInfo[UIImagePickerControllerOriginalImage] != nil {
             
-            let image = didFinishPickingMediaWithInfo[UIImagePickerControllerOriginalImage] as? UIImage
-            profileButton!.setImage(image, forState: .Normal)
-            profileButton!.imageView!.layer.cornerRadius = profileButton!.frame.size.width / 2.0
-            self.outgoingAvatar.avatarImage = image
+            if let image = didFinishPickingMediaWithInfo[UIImagePickerControllerOriginalImage] as? UIImage {
+                
+                updateMyImage(image)
+                storageManager.upload(image)
+            }
         }
         picker.dismissViewControllerAnimated(true, completion: nil)
+    }
+    
+    func updateMyImage(image: UIImage)  {
+        profileButton!.setImage(image, forState: .Normal)
+        profileButton!.imageView!.layer.cornerRadius = profileButton!.frame.size.width / 2.0
+        incomingAvatar.avatarImage = image
+    }
+    
+    func updatePartnerImage(image: UIImage) {
+        outgoingAvatar.avatarImage = image
     }
     
     @objc
@@ -168,17 +201,17 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
     }
 
     override func didPressSendButton(button: UIButton!, withMessageText text: String!, senderId: String!, senderDisplayName: String!, date: NSDate!) {
-        if !manager.isLogin() {
+        if !authManager.isLogin() {
             checkUserNameIfValiable(text)
             return
         }
         
-        if !manager.isInRoom() {
+        if !authManager.isInRoom() {
             return
         }
         
         self.finishSendingMessageAnimated(true)
-        manager.postMessage(senderId, name: senderDisplayName, text: text)
+        authManager.postMessage(senderId, name: senderDisplayName, text: text)
     }
     
     func checkUserNameIfValiable(name: String) {
@@ -229,11 +262,11 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
             return
         }
         
-        if manager.isInRoom() {
+        if authManager.isInRoom() {
             return
         }
         
-        manager.createRoom((message?.senderId)!)
+        authManager.createRoom((message?.senderId)!)
     }
     
     func sendAutoMessage(messageStr: String, senderId: String, displayName: String) {
@@ -255,8 +288,10 @@ extension ViewController : AuthDelegate {
         sendAutoMessage("\(name)さんのログインが完了しました！", senderId: "", displayName: "")
         navigationItem.rightBarButtonItem?.enabled = true
         
-        manager.registUser(uid)
+        authManager.registUser(uid)
         searchUser()
+        
+        storageManager.download(uid, isPartner: false)
     }
     
     func onLoginError(error: NSError, name: String) {
@@ -285,8 +320,39 @@ extension ViewController : AuthDelegate {
     }
     
     func leaving() {
-        self.manager.removeMonitoringAll()
-        self.manager.exitRoom(true)
+        self.authManager.removeMonitoringAll()
+        self.authManager.exitRoom(true)
         self.searchUser()
+    }
+}
+
+extension ViewController : StorageDelegate {
+    
+    func didUploadSuccess() {
+        print("success!")
+    }
+    
+    func didUploadFailure(error: NSError) {
+        print("fairure...")
+    }
+    
+    func didDownloadSuccsess(image: UIImage, isPartner: Bool) {
+        if isPartner {
+            self.outgoingAvatar = JSQMessagesAvatarImageFactory.avatarImageWithImage(image, diameter: 64)
+        } else {
+            self.incomingAvatar = JSQMessagesAvatarImageFactory.avatarImageWithImage(image, diameter: 64)
+        }
+    }
+    
+    func didDownloadFailure(error: NSError, isPartner: Bool) {
+        if isPartner {
+            self.outgoingAvatar = JSQMessagesAvatarImageFactory.avatarImageWithImage(UIImage(named: "icon_default")!, diameter: 64)
+        } else {
+            self.incomingAvatar = JSQMessagesAvatarImageFactory.avatarImageWithImage(UIImage(named: "icon_default")!, diameter: 64)
+        }
+    }
+    
+    func didChangeImage(image: UIImage) {
+        
     }
 }

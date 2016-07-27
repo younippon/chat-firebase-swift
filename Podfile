@@ -8,6 +8,7 @@ target 'chat-firebase-ios' do
   pod 'Firebase'
   pod 'Firebase/Database'
   pod 'Firebase/Auth'
+  pod 'Firebase/Storage'
 
   #chat ui
   pod 'JSQMessagesViewController'

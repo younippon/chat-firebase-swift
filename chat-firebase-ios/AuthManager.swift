@@ -27,6 +27,8 @@ class AuthManager {
     private init() {
     }
     
+    var delegate: AuthDelegate?
+    
     private var rootRef: FIRDatabaseReference!
     private var roomId: String?
     private var auth: FIRUser?
@@ -39,8 +41,6 @@ class AuthManager {
     
     private let userPath = "users"
     private let roomPath = "rooms"
-    
-    var delegate: AuthDelegate?
     
     private func getMessagePath() -> String {
         return "rooms/\(roomId!)/messages"
