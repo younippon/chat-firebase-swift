@@ -62,8 +62,6 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         setupUser(user.uid, name: username)
         sendAutoMessage("\(username)さんのログインが完了しました！")
         
-        navigationItem.rightBarButtonItem?.enabled = true
-        
         authManager.registUser(user.uid)
         searchUser()
     }
@@ -71,7 +69,8 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
     private func searchUser() {
         sendAutoMessage("お声がかかったら、話してみたい人をタップしましょう！")
         
-        self.navigationItem.leftBarButtonItem?.enabled = false
+        navigationItem.rightBarButtonItem?.enabled = true
+        navigationItem.leftBarButtonItem?.enabled = false
         
         authManager.addMonitoringRooms()
         authManager.addMonitoringUsers()
@@ -83,7 +82,8 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         sendAutoMessage("\(name)さんが入室しました！")
         sendAutoMessage("それでは楽しい時間をお過ごしください♩")
         
-        self.navigationItem.leftBarButtonItem?.enabled = true
+        navigationItem.rightBarButtonItem?.enabled = false
+        navigationItem.leftBarButtonItem?.enabled = true
         
         authManager.removeMonitoringAll()
         
@@ -156,9 +156,14 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         if didFinishPickingMediaWithInfo[UIImagePickerControllerOriginalImage] != nil {
             
             if let image = didFinishPickingMediaWithInfo[UIImagePickerControllerOriginalImage] as? UIImage {
+                let size = CGSize(width: 96, height: 96)
+                UIGraphicsBeginImageContext(size)
+                image.drawInRect(CGRectMake(0, 0, size.width, size.height))
+                let resizeImage = UIGraphicsGetImageFromCurrentImageContext()
+                UIGraphicsEndImageContext()
                 
-                updateMyImage(image)
-                storageManager.upload(image)
+                updateMyImage(resizeImage)
+                storageManager.upload(resizeImage, name: authManager.getName())
             }
         }
         picker.dismissViewControllerAnimated(true, completion: nil)
@@ -167,11 +172,11 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
     private func updateMyImage(image: UIImage)  {
         profileButton!.setImage(image, forState: .Normal)
         profileButton!.imageView!.layer.cornerRadius = profileButton!.frame.size.width / 2.0
-        incomingAvatar.avatarImage = image
+        outgoingAvatar.avatarImage = image
     }
     
     private func updatePartnerImage(image: UIImage) {
-        outgoingAvatar.avatarImage = image
+        incomingAvatar.avatarImage = image
     }
     
     @objc
@@ -197,7 +202,6 @@ class ViewController: JSQMessagesViewController, UIImagePickerControllerDelegate
         alert.addAction(actionOk)
         alert.addAction(actionCancel)
         return alert
-        
     }
 
     override func didPressSendButton(button: UIButton!, withMessageText text: String!, senderId: String!, senderDisplayName: String!, date: NSDate!) {
@@ -314,36 +318,41 @@ extension ViewController : AuthDelegate {
     }
     
     func didPartnerLeave(name: String) {
-        self.sendAutoMessage("\(name)さんが退室しました。")
+        sendAutoMessage("\(name)さんが退室しました。")
         leaving()
     }
     
     func leaving() {
-        self.authManager.removeMonitoringAll()
-        self.authManager.exitRoom(true)
-        self.searchUser()
+        authManager.removeMonitoringAll()
+        authManager.exitRoom(true)
+        updateAvaterImageDefault(true)
+        searchUser()
+        
     }
 }
 
 extension ViewController : StorageDelegate {
     
-    func didUploadSuccess() {
-        print("success!")
+    func didUploadSuccess(name: String) {
+        print("upload success!")
+        sendAutoMessage("プロフィール画像を変更しました！")
     }
     
     func didUploadFailure(error: NSError) {
-        print("fairure...")
+        print("upload fairure...")
     }
     
     func didDownloadSuccsess(image: UIImage, isPartner: Bool) {
+        print("download success!")
         updateAvaterImage(image, isPartner: isPartner)
     }
     
     func didDownloadFailure(error: NSError, isPartner: Bool) {
+        print("download failure...")
         updateAvaterImageDefault(isPartner)
     }
     
     func didChangeImage(image: UIImage) {
-        
+        updatePartnerImage(image)
     }
 }

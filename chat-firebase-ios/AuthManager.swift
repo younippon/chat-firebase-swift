@@ -70,8 +70,8 @@ class AuthManager {
         }
     }
     
-    private func setupUserInfo(user: String, username: String) {
-        
+    func getName() -> String {
+        return name!
     }
     
     func registUser(uid: String) {

@@ -10,7 +10,7 @@ import Foundation
 import Firebase
 
 protocol StorageDelegate {
-    func didUploadSuccess()
+    func didUploadSuccess(name: String)
     func didUploadFailure(error: NSError)
     
     func didDownloadSuccsess(image: UIImage, isPartner: Bool)
@@ -35,21 +35,21 @@ class StorageManager {
         myStorageRef = storageRef.child("images/\(uid).png")
     }
     
-    func upload(image: UIImage) {
+    func upload(image: UIImage, name: String) {
         if let data = UIImagePNGRepresentation(image) as NSData! {
             myStorageRef.putData(data, metadata: nil) { metadata, error in
                 if (error != nil) {
                     self.delegate?.didUploadFailure(error!)
                     return
                 }
-                self.delegate?.didUploadSuccess()
+                self.delegate?.didUploadSuccess(name)
             }
         }
     }
     
     func download(uid: String, isPartner: Bool) {
         let ref = storageRef.child("images/\(uid).png")
-        ref.dataWithMaxSize(1 * 1024 * 1024) { (data, error) -> Void in
+        ref.dataWithMaxSize(1 * 128 * 128) { (data, error) -> Void in
             if (error != nil) {
                 self.delegate?.didDownloadFailure(error!, isPartner: isPartner)
                 return
@@ -57,9 +57,5 @@ class StorageManager {
             let image: UIImage! = UIImage(data: data!)
             self.delegate?.didDownloadSuccsess(image, isPartner: isPartner)
         }
-    }
-    
-    func addMonitoringPartnerImage(uid: String) {
-        
     }
 }
